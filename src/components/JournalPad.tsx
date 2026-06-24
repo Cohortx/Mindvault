@@ -25,16 +25,26 @@ export function JournalPad({ onSave, existingEntry, onCancel }: JournalPadProps)
   const [audioUrl, setAudioUrl] = useState<string | null>(existingEntry?.voice_url || null);
   const [saving, setSaving] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [transcript, setTranscript] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setSpeechSupported(Boolean(SpeechRecognition));
+
     return () => {
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
     };
   }, []);
@@ -80,6 +90,57 @@ export function JournalPad({ onSave, existingEntry, onCancel }: JournalPadProps)
       }
     }
   }, [isRecording]);
+
+  const startTranscription = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    recognitionRef.current = recognition;
+    setIsTranscribing(true);
+    setTranscript('');
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interimTranscript = '';
+      let finalTranscript = transcript;
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+
+      setTranscript(finalTranscript + interimTranscript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsTranscribing(false);
+      recognition.stop();
+    };
+
+    recognition.onend = () => {
+      setIsTranscribing(false);
+    };
+
+    recognition.start();
+  }, [transcript]);
+
+  const stopTranscription = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsTranscribing(false);
+    }
+  }, []);
 
   const playAudio = useCallback(() => {
     if (audioUrl && audioRef.current) {
@@ -196,7 +257,7 @@ export function JournalPad({ onSave, existingEntry, onCancel }: JournalPadProps)
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Voice Recording
         </label>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {!audioUrl ? (
             <button
               onClick={isRecording ? stopRecording : startRecording}
@@ -251,6 +312,42 @@ export function JournalPad({ onSave, existingEntry, onCancel }: JournalPadProps)
               onEnded={() => setIsPlaying(false)}
               className="hidden"
             />
+          )}
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={isTranscribing ? stopTranscription : startTranscription}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                isTranscribing
+                  ? 'bg-red-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+              disabled={!speechSupported}
+            >
+              {isTranscribing ? 'Stop Transcription' : 'Start Transcription'}
+            </button>
+            {!speechSupported && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Speech recognition not supported in this browser.
+              </span>
+            )}
+            {transcript && (
+              <button
+                onClick={() => setContent((prev) => `${prev}${prev ? '\n' : ''}${transcript}`)}
+                className="px-4 py-2 rounded-lg font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800/30 transition-all"
+              >
+                Insert Transcript
+              </button>
+            )}
+          </div>
+
+          {transcript && (
+            <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-sm text-gray-800 dark:text-gray-200">
+              <div className="font-semibold mb-2">Transcript Preview</div>
+              <p>{transcript}</p>
+            </div>
           )}
         </div>
       </div>
