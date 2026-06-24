@@ -38,6 +38,8 @@ export interface UserPreferences {
   theme: 'light' | 'dark';
   background_style: string;
   notifications_enabled: boolean;
+  daily_reminder_enabled: boolean;
+  daily_reminder_time: string;
   created_at: string;
   updated_at: string;
 }

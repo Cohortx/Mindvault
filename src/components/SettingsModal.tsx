@@ -4,9 +4,20 @@ import { useTheme, wallpapers } from '../lib/ThemeContext';
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  dailyReminderEnabled: boolean;
+  dailyReminderTime: string;
+  onToggleDailyReminder: () => void;
+  onUpdateDailyReminderTime: (time: string) => void;
 }
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({
+  isOpen,
+  onClose,
+  dailyReminderEnabled,
+  dailyReminderTime,
+  onToggleDailyReminder,
+  onUpdateDailyReminderTime,
+}: SettingsModalProps) {
   const { backgroundStyle, setBackgroundStyle } = useTheme();
 
   if (!isOpen) return null;
@@ -26,6 +37,42 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
 
         <div className="space-y-6">
+          {/* Daily Reminder */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Daily Journal Reminder
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Get a browser reminder each day to write in your journal.
+                </p>
+              </div>
+              <button
+                onClick={onToggleDailyReminder}
+                className={`px-3 py-2 rounded-full text-sm font-medium transition-all ${
+                  dailyReminderEnabled
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {dailyReminderEnabled ? 'On' : 'Off'}
+              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Reminder time
+              </label>
+              <input
+                type="time"
+                value={dailyReminderTime}
+                onChange={(e) => onUpdateDailyReminderTime(e.target.value)}
+                className="input-field w-full sm:w-40"
+                disabled={!dailyReminderEnabled}
+              />
+            </div>
+          </div>
+
           {/* Wallpapers */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">

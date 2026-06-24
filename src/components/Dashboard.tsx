@@ -19,6 +19,8 @@ export function Dashboard() {
   const [view, setView] = useState<View>('write');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
+  const [dailyReminderTime, setDailyReminderTime] = useState('20:00');
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
@@ -26,15 +28,46 @@ export function Dashboard() {
     loadPreferences();
   }, [user]);
 
+  useEffect(() => {
+    if (!dailyReminderEnabled || !notificationsEnabled) return;
+
+    const now = new Date();
+    const [hour, minute] = dailyReminderTime.split(':').map(Number);
+    const reminderDate = new Date(now);
+    reminderDate.setHours(hour, minute, 0, 0);
+
+    if (reminderDate <= now) {
+      reminderDate.setDate(reminderDate.getDate() + 1);
+    }
+
+    const timeoutMs = reminderDate.getTime() - now.getTime();
+    const reminderTimer = window.setTimeout(() => {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('MindVault Reminder', {
+          body: 'Time to write your daily journal entry.',
+        });
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }, timeoutMs);
+
+    return () => {
+      window.clearTimeout(reminderTimer);
+    };
+  }, [dailyReminderEnabled, dailyReminderTime, notificationsEnabled]);
+
   const loadPreferences = async () => {
     if (!user) return;
     const { data } = await supabase
       .from('user_preferences')
-      .select('notifications_enabled')
+      .select('notifications_enabled, daily_reminder_enabled, daily_reminder_time')
       .eq('user_id', user.id)
       .single();
     if (data) {
       setNotificationsEnabled(data.notifications_enabled);
+      setDailyReminderEnabled(data.daily_reminder_enabled ?? false);
+      setDailyReminderTime(data.daily_reminder_time ?? '20:00');
     }
   };
 
@@ -61,6 +94,41 @@ export function Dashboard() {
       }
     }
   }, [user, notificationsEnabled]);
+
+  const toggleDailyReminder = useCallback(async () => {
+    if (!user) return;
+
+    const newValue = !dailyReminderEnabled;
+    setDailyReminderEnabled(newValue);
+
+    await supabase.from('user_preferences').upsert(
+      {
+        user_id: user.id,
+        notifications_enabled: notificationsEnabled,
+        daily_reminder_enabled: newValue,
+        daily_reminder_time: dailyReminderTime,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+  }, [user, dailyReminderEnabled, dailyReminderTime, notificationsEnabled]);
+
+  const updateDailyReminderTime = useCallback(async (time: string) => {
+    if (!user) return;
+
+    setDailyReminderTime(time);
+
+    await supabase.from('user_preferences').upsert(
+      {
+        user_id: user.id,
+        notifications_enabled: notificationsEnabled,
+        daily_reminder_enabled: dailyReminderEnabled,
+        daily_reminder_time: time,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+  }, [user, dailyReminderEnabled, notificationsEnabled]);
 
   const handleSaveEntry = () => {
     setRefreshKey((k) => k + 1);
@@ -151,7 +219,14 @@ export function Dashboard() {
           </div>
         </main>
 
-        <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          dailyReminderEnabled={dailyReminderEnabled}
+          dailyReminderTime={dailyReminderTime}
+          onToggleDailyReminder={toggleDailyReminder}
+          onUpdateDailyReminderTime={updateDailyReminderTime}
+        />
       </div>
     </div>
   );

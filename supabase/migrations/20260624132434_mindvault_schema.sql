@@ -36,6 +36,8 @@ CREATE TABLE user_preferences (
   theme VARCHAR(20) DEFAULT 'light',
   background_style VARCHAR(50) DEFAULT 'milky',
   notifications_enabled BOOLEAN DEFAULT true,
+  daily_reminder_enabled BOOLEAN DEFAULT false,
+  daily_reminder_time TIME DEFAULT '20:00',
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   UNIQUE(user_id)
