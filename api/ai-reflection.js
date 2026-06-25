@@ -42,18 +42,18 @@ function buildSystemPrompt() {
 }
 
 async function callGemini(prompt, apiKey) {
-  const response = await fetch(`https://gemini.googleapis.com/v1/models/${GEMINI_MODEL}:predict`, {
+  const response = await fetch(`https://gemini.googleapis.com/v1/models/${GEMINI_MODEL}:generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      instances: [{ content: prompt }],
-      parameters: {
-        temperature: 0.7,
-        max_output_tokens: 900,
+      prompt: {
+        text: prompt,
       },
+      temperature: 0.7,
+      maxOutputTokens: 900,
     }),
   });
 
@@ -63,7 +63,7 @@ async function callGemini(prompt, apiKey) {
   }
 
   const data = await response.json();
-  return data.predictions?.[0]?.content?.[0]?.text ?? 'No response received from the Gemini service.';
+  return data.candidates?.[0]?.output ?? data.output?.text ?? 'No response received from the Gemini service.';
 }
 
 async function callOpenAI(prompt, apiKey) {

@@ -30,18 +30,18 @@ export default defineConfig(({ mode }) => {
     "You are a compassionate and empathetic personal journaling coach. Analyze the user's journal history to provide a concise summary, emotional and mood insights, key topics, goals, achievements, recurring patterns, and thoughtful follow-up questions. Detect signs of stress, burnout, or emotional distress and recommend supportive coping strategies and professional help when appropriate. Keep the tone supportive, non-judgmental, and private. Never reveal personal journal content outside the user's session.";
 
   async function callGemini(prompt: string, apiKey: string) {
-    const response = await fetch(`https://gemini.googleapis.com/v1/models/${GEMINI_MODEL}:predict`, {
+    const response = await fetch(`https://gemini.googleapis.com/v1/models/${GEMINI_MODEL}:generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        instances: [{ content: prompt }],
-        parameters: {
-          temperature: 0.7,
-          max_output_tokens: 900,
+        prompt: {
+          text: prompt,
         },
+        temperature: 0.7,
+        maxOutputTokens: 900,
       }),
     });
 
@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
     }
 
     const data = await response.json();
-    return data.predictions?.[0]?.content?.[0]?.text ?? 'No response received from the Gemini service.';
+    return data.candidates?.[0]?.output ?? data.output?.text ?? 'No response received from the Gemini service.';
   }
 
   async function callOpenAI(prompt: string, apiKey: string) {

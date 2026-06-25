@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
-import { generateReflectionReport, ReflectionPeriod } from '../lib/ai';
+import { generateReflectionReport, generateFollowUpQuestions, ReflectionPeriod } from '../lib/ai';
 import type { JournalEntry } from '../lib/types';
-import { Loader2, Sparkles, MessageCircle } from 'lucide-react';
+import { Loader2, Sparkles, MessageCircle, MessageSquare } from 'lucide-react';
 
 const periods: { value: ReflectionPeriod; label: string }[] = [
   { value: 'daily', label: 'Daily' },
@@ -15,8 +15,11 @@ export function ReflectionAgent() {
   const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState<ReflectionPeriod>('daily');
   const [report, setReport] = useState('');
+  const [questions, setQuestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [questionLoading, setQuestionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [questionError, setQuestionError] = useState('');
 
   const loadEntriesForPeriod = async (): Promise<JournalEntry[]> => {
     if (!user) return [];
@@ -46,13 +49,15 @@ export function ReflectionAgent() {
     }
 
     setError('');
+    setReport('');
+    setQuestionError('');
+    setQuestions([]);
     setLoading(true);
 
     try {
       const entries = await loadEntriesForPeriod();
       if (!entries.length) {
         setError('No entries found for the selected period.');
-        setReport('');
         return;
       }
 
@@ -62,9 +67,36 @@ export function ReflectionAgent() {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Failed to generate the reflection report. Please try again.';
       setError(message);
-      setReport('');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createQuestions = async () => {
+    if (!user) {
+      setQuestionError('You must be signed in to generate follow-up questions.');
+      return;
+    }
+
+    setQuestionError('');
+    setQuestions([]);
+    setQuestionLoading(true);
+
+    try {
+      const entries = await loadEntriesForPeriod();
+      if (!entries.length) {
+        setQuestionError('No entries found for the selected period.');
+        return;
+      }
+
+      const followUps = await generateFollowUpQuestions(entries, selectedPeriod);
+      setQuestions(followUps);
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : 'Failed to generate follow-up questions. Please try again.';
+      setQuestionError(message);
+    } finally {
+      setQuestionLoading(false);
     }
   };
 
@@ -97,24 +129,51 @@ export function ReflectionAgent() {
       </div>
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
-        <button
-          onClick={createReport}
-          disabled={loading}
-          className="btn-primary flex items-center justify-center gap-2"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
-          {loading ? 'Generating...' : 'Generate Reflection'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={createReport}
+            disabled={loading}
+            className="btn-primary flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+            {loading ? 'Generating...' : 'Generate Reflection'}
+          </button>
+          <button
+            onClick={createQuestions}
+            disabled={questionLoading}
+            className="btn-secondary flex items-center justify-center gap-2"
+          >
+            {questionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+            {questionLoading ? 'Generating...' : 'Generate Follow-up Questions'}
+          </button>
+        </div>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Reports are based on entries from the last {selectedPeriod}.
+          Based on entries from the last {selectedPeriod}.
         </p>
       </div>
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 p-4">{error}</div>}
+      {(error || questionError) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 p-4 mb-4">
+          {error || questionError}
+        </div>
+      )}
 
       {report && (
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 whitespace-pre-wrap text-sm leading-6 text-gray-800 dark:text-gray-100">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 whitespace-pre-wrap text-sm leading-6 text-gray-800 dark:text-gray-100 mb-4">
           {report}
+        </div>
+      )}
+
+      {questions.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 text-sm leading-6 text-gray-800 dark:text-gray-100">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Follow-Up Questions</h3>
+          <ol className="list-decimal list-inside space-y-2">
+            {questions.map((question, index) => (
+              <li key={index} className="text-gray-700 dark:text-gray-200">
+                {question}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </div>
