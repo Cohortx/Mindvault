@@ -40,7 +40,11 @@ export function ReflectionAgent() {
   };
 
   const createReport = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('You must be signed in to generate a reflection report.');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
@@ -56,7 +60,8 @@ export function ReflectionAgent() {
       setReport(reflection);
     } catch (err) {
       console.error(err);
-      setError('Failed to generate the reflection report. Please try again.');
+      const message = err instanceof Error ? err.message : 'Failed to generate the reflection report. Please try again.';
+      setError(message);
       setReport('');
     } finally {
       setLoading(false);

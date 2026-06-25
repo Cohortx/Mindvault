@@ -208,7 +208,7 @@ export function Dashboard() {
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              Reflect
+              Reflect AI
             </button>
           </div>
 
