@@ -1,7 +1,27 @@
-const GEMINI_MODEL = process.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
-const OPENAI_MODEL = process.env.VITE_OPENAI_MODEL || 'gpt-3.5-turbo';
+const GEMINI_MODEL = process.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash';
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
+const OPENAI_MODEL = process.env.VITE_OPENAI_MODEL || 'gpt-3.5-turbo';
 const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY;
+const USE_MOCK_REFLECTION = process.env.VITE_USE_MOCK_REFLECTION === 'true';
+
+const MOCK_REFLECTION_REPORT = `Sample Reflection Report:
+
+- Summary: Over the last period, you've written consistently and reflected on both small wins and challenges. Your journal shows a thoughtful balance between gratitude, stress, and growth.
+- Mood themes: You reported feelings of calm, occasional anxiety, and renewed motivation. There is evidence of more positive mood moments when you focus on specific progress.
+- Key topics: self-care, work momentum, relationship balance, creative energy, and rest.
+- Patterns: After busy or stressful days, you benefit from intentional downtime and writing your next day plan.
+- Goals: Keep building daily consistency, notice when stress appears, and celebrate small achievements.
+- Suggestions: Use brief morning intentions, reflect on one win each day, and consider asking for support when stress peaks.
+
+Follow-up questions are below to help you go deeper.`;
+
+const MOCK_FOLLOW_UP_QUESTIONS = [
+  'What small action could you take tomorrow to make today feel more balanced?',
+  'Which emotion came up most often in this period, and what triggered it?',
+  'What progress makes you most proud from the last few entries?',
+  'How can you support yourself when you notice stress or fatigue building?',
+  'What would it feel like to carry forward one positive habit from this week?'
+];
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -139,7 +159,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = GEMINI_API_KEY || OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!apiKey && !USE_MOCK_REFLECTION) {
     res.statusCode = 500;
     return res.end(JSON.stringify({ error: 'Missing AI API key on the server. Set VITE_GEMINI_API_KEY or VITE_OPENAI_API_KEY.' }));
   }
@@ -149,23 +169,40 @@ export default async function handler(req, res) {
 
     if (mode === 'followups') {
       const prompt = `${buildSystemPrompt()}\n\n${buildFollowUpPrompt(journalText, period)}`;
-      const output = GEMINI_API_KEY
-        ? await callGemini(prompt, GEMINI_API_KEY)
-        : await callOpenAI(prompt, OPENAI_API_KEY);
-      const questions = parseQuestions(output);
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      return res.end(JSON.stringify({ questions }));
+      try {
+        const output = GEMINI_API_KEY
+          ? await callGemini(prompt, GEMINI_API_KEY)
+          : await callOpenAI(prompt, apiKey);
+        const questions = parseQuestions(output);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ questions }));
+      } catch (error) {
+        if (USE_MOCK_REFLECTION || !apiKey) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          return res.end(JSON.stringify({ questions: MOCK_FOLLOW_UP_QUESTIONS }));
+        }
+        throw error;
+      }
     }
 
     const prompt = `${buildSystemPrompt()}\n\n${buildUserPrompt(journalText, period)}`;
-    const report = GEMINI_API_KEY
-      ? await callGemini(prompt, GEMINI_API_KEY)
-      : await callOpenAI(prompt, OPENAI_API_KEY);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ report }));
+    try {
+      const report = GEMINI_API_KEY
+        ? await callGemini(prompt, GEMINI_API_KEY)
+        : await callOpenAI(prompt, apiKey);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({ report }));
+    } catch (error) {
+      if (USE_MOCK_REFLECTION || !apiKey) {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ report: MOCK_REFLECTION_REPORT }));
+      }
+      throw error;
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'AI server error.';
     res.statusCode = 500;
