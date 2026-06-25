@@ -7,11 +7,12 @@ import { QuoteCard } from './QuoteCard';
 import { BibleVerseCard } from './BibleVerseCard';
 import { JournalPad } from './JournalPad';
 import { JournalHistory } from './JournalHistory';
+import { ReflectionAgent } from './ReflectionAgent';
 import { SettingsModal } from './SettingsModal';
 import type { JournalEntry } from '../lib/types';
-import { PenLine, BookOpen } from 'lucide-react';
+import { PenLine, BookOpen, Sparkles } from 'lucide-react';
 
-type View = 'write' | 'history';
+type View = 'write' | 'history' | 'reflection';
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -166,7 +167,7 @@ export function Dashboard() {
           </div>
 
           {/* View Toggle */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-6 flex-wrap">
             <button
               onClick={() => {
                 setView('write');
@@ -195,6 +196,20 @@ export function Dashboard() {
               <BookOpen className="w-4 h-4" />
               Journal
             </button>
+            <button
+              onClick={() => {
+                setView('reflection');
+                setEditingEntry(null);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all backdrop-blur-sm ${
+                view === 'reflection'
+                  ? 'bg-primary-500 text-white shadow-sm'
+                  : 'bg-white/90 dark:bg-gray-800/90 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              Reflect
+            </button>
           </div>
 
           {/* Content */}
@@ -210,11 +225,13 @@ export function Dashboard() {
               ) : (
                 <JournalPad key="new" onSave={handleSaveEntry} />
               )
-            ) : (
+            ) : view === 'history' ? (
               <JournalHistory
                 onEdit={handleEditEntry}
                 refreshKey={refreshKey}
               />
+            ) : (
+              <ReflectionAgent />
             )}
           </div>
         </main>
