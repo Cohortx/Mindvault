@@ -2,38 +2,13 @@ import type { JournalEntry } from './types';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const USE_MOCK_REFLECTION =
-  import.meta.env.VITE_USE_MOCK_REFLECTION === 'true' || (!GEMINI_API_KEY && !OPENAI_API_KEY);
 
 export type ReflectionPeriod = 'daily' | 'weekly' | 'monthly';
-
-const MOCK_REFLECTION_REPORT = `Sample Reflection Report:
-
-- Summary: Over the last period, you've written consistently and reflected on both small wins and challenges. Your journal shows a thoughtful balance between gratitude, stress, and growth.
-- Mood themes: You reported feelings of calm, occasional anxiety, and renewed motivation. There is evidence of more positive mood moments when you focus on specific progress.
-- Key topics: self-care, work momentum, relationship balance, creative energy, and rest.
-- Patterns: After busy or stressful days, you benefit from intentional downtime and writing your next day plan.
-- Goals: Keep building daily consistency, notice when stress appears, and celebrate small achievements.
-- Suggestions: Use brief morning intentions, reflect on one win each day, and consider asking for support when stress peaks.
-
-Follow-up questions are below to help you go deeper.`;
-
-const MOCK_FOLLOW_UP_QUESTIONS = [
-  'What small action could you take tomorrow to make today feel more balanced?',
-  'Which emotion came up most often in this period, and what triggered it?',
-  'What progress makes you most proud from the last few entries?',
-  'How can you support yourself when you notice stress or fatigue building?',
-  'What would it feel like to carry forward one positive habit from this week?'
-];
 
 export async function generateReflectionReport(
   entries: JournalEntry[],
   period: ReflectionPeriod
 ): Promise<string> {
-  if (USE_MOCK_REFLECTION) {
-    return MOCK_REFLECTION_REPORT;
-  }
-
   const response = await fetch('/api/ai-reflection', {
     method: 'POST',
     headers: {
@@ -57,10 +32,6 @@ export async function generateFollowUpQuestions(
   entries: JournalEntry[],
   period: ReflectionPeriod
 ): Promise<string[]> {
-  if (USE_MOCK_REFLECTION) {
-    return MOCK_FOLLOW_UP_QUESTIONS;
-  }
-
   const response = await fetch('/api/ai-reflection', {
     method: 'POST',
     headers: {

@@ -1,4 +1,4 @@
-const GEMINI_MODEL = process.env.VITE_GEMINI_MODEL || 'gemini-1.0';
+const GEMINI_MODEL = process.env.VITE_GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.VITE_OPENAI_MODEL || 'gpt-3.5-turbo';
 const GEMINI_API_KEY = process.env.VITE_GEMINI_API_KEY;
 const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY;
@@ -53,20 +53,27 @@ function buildSystemPrompt() {
 }
 
 async function callGemini(prompt, apiKey) {
-  const response = await fetch(`https://gemini.googleapis.com/v1/models/${GEMINI_MODEL}:generate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      prompt: {
-        text: prompt,
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      temperature: 0.7,
-      maxOutputTokens: 900,
-    }),
-  });
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 900,
+        },
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -74,7 +81,12 @@ async function callGemini(prompt, apiKey) {
   }
 
   const data = await response.json();
-  return data.candidates?.[0]?.output ?? data.output?.text ?? 'No response received from the Gemini service.';
+  return (
+    data.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text)
+      .filter(Boolean)
+      .join('\n') ?? 'No response received from the Gemini service.'
+  );
 }
 
 async function callOpenAI(prompt, apiKey) {
